@@ -1,20 +1,25 @@
 # sshutil
 
-A [single-dependency][gomod] utility package that provides a `net/http` style ssh server.
+A [single-dependency][gomod] utility package that provides a [`net/http`][net-http] style SSH server.
 
-`sshutil` is part of the [Smallstep][smallstep] crypto suite.
+`sshutil` is part of the [Smallstep][smallstep] crypto suite ([step][], [step-ca][], etc.).
 
 [gomod]: https://github.com/smallstep/sshutil/blob/master/go.mod
+[net-http]: https://golang.org/pkg/net/http/
 [smallstep]: https://smallstep.com/docs
+[step]: https://github.com/smallstep/cli
+[step-ca]: https://github.com/smallstep/certificates
 
 ## Why sshutil?
 
-The sshutil package depends solely on the Go `x/crypto` library.
-Go's x/crypto/ssh package provides convenient support for both the [ssh wire protocol][rfc4253] and the [ssh authentication protocol][rfc4252].
+The sshutil package depends solely on the Go [`x/crypto`][crypto] module.
+Go's [`x/crypto/ssh`][crypto-ssh] package provides convenient support for both the [ssh wire protocol][rfc4253] and the [ssh authentication protocol][rfc4252].
 The authentication protocol implementation is scoped to single connections.
 A small, but tedious, amount of work is required to implement a full connection-tracking server.
 `sshutil` fills in the gap.
 
+[crypto]: https://pkg.go.dev/golang.org/x/crypto
+[crypto-ssh]: https://pkg.go.dev/golang.org/x/crypto/ssh
 [rfc4252]: https://tools.ietf.org/html/rfc4252
 [rfc4253]: https://tools.ietf.org/html/rfc4253
 
