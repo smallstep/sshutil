@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -13,7 +12,7 @@ func hello(session *sshutil.Session) {
 }
 
 func main() {
-	server := &sshutil.Server{ Addr: ":2022" }
+	server := &sshutil.Server{Addr: ":2022"}
 	server.Channel("session", sshutil.NewSessionHandler(hello))
 	err := server.ListenAndServe()
 	log.Print(err)

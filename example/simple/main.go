@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	server := &sshutil.Server{ Addr: ":2022" }
+	server := &sshutil.Server{Addr: ":2022"}
 	err := server.ListenAndServe()
 	log.Print(err)
 }

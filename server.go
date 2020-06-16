@@ -36,7 +36,7 @@ type Server struct {
 
 	L *log.Logger
 
-	Idle        sync.WaitGroup
+	Idle sync.WaitGroup
 
 	mu          sync.RWMutex
 	once        sync.Once

@@ -37,7 +37,7 @@ func() hello(stream sshutil.Session) {
 }
 
 func main() {
-	server := &sshutil.Server{ Addr: ":2022" }
+	server := &sshutil.Server{Addr: ":2022"}
 	server.Channel("session", sshutil.NewSessionHandler(hello))
 	server.ListenAndServe()
 }

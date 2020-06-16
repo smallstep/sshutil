@@ -5,13 +5,16 @@ import (
 	"testing"
 )
 
-type badReader struct {}
+type badReader struct{}
+
 var errBadRand = errors.New("no entropy")
+
 func (reader badReader) Read(b []byte) (n int, err error) {
 	return 0, errBadRand
 }
 
-type goodReader struct {}
+type goodReader struct{}
+
 func (reader goodReader) Read(b []byte) (n int, err error) {
 	emptyKey := make([]byte, len(b))
 	copy(b, emptyKey)
@@ -51,4 +54,3 @@ func TestGenerateKey_Okay(t *testing.T) {
 		t.Error("expected non-nil key")
 	}
 }
-
