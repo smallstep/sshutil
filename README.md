@@ -22,7 +22,7 @@ A small, but tedious, amount of work is required to implement a full connection-
 
 ### Hello SSH
 
-```
+```golang
 package main
 
 import "go.step.sm/sshutil"
@@ -51,8 +51,7 @@ Server closed remote connection to localhost.
 The default session handler is an echo server.
 Easily configure a persistent host key.
 
-```
-
+```golang
 package main
 
 import (
