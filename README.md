@@ -1,9 +1,10 @@
 # sshutil
 
-A single-dependency utility package that provides a `net/http` style ssh server.
+A [single-dependency][gomod] utility package that provides a `net/http` style ssh server.
 
 `sshutil` is part of the [Smallstep][smallstep] crypto suite.
 
+[gomod]: https://github.com/smallstep/sshutil/blob/master/go.mod
 [smallstep]: https://smallstep.com/docs
 
 ## Why sshutil?
