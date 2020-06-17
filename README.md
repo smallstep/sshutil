@@ -13,15 +13,16 @@ A [single-dependency][gomod] utility package that provides a [`net/http`][net-ht
 ## Why sshutil?
 
 The `sshutil` package depends solely on the Go [`x/crypto`][crypto] module.
-The [`x/crypto/ssh`][crypto-ssh] package provides convenient support for both the [ssh wire protocol][rfc4253] and the [ssh authentication protocol][rfc4252].
-The authentication protocol API is, however, scoped to single connections—whereas servers generally accept many connections.
-A small, but tedious, amount of work is required to implement a full connection-tracking server for production-like settings.
+The [`x/crypto/ssh`][crypto-ssh] package provides convenient support for the [ssh wire protocol][rfc4253], the [ssh authentication protocol][rfc4252], and the [ssh connection protocol][rfc4254].
+SSH, and thus the `x/crypto` implementation, is natually scoped to a single connection—whereas servers generally need to accept many connections.
+A small, but tedious, amount of work is required to implement a full connection-tracking server for use in applications.
 `sshutil` fills in the gap.
 
 [crypto]: https://pkg.go.dev/golang.org/x/crypto
 [crypto-ssh]: https://pkg.go.dev/golang.org/x/crypto/ssh
 [rfc4252]: https://tools.ietf.org/html/rfc4252
 [rfc4253]: https://tools.ietf.org/html/rfc4253
+[rfc4254]: https://tools.ietf.org/html/rfc4254
 
 ## Get
 
