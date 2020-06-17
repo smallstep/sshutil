@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -15,11 +14,23 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Server does ssh.
+// Server does SSH.
+//
+// SSH consists of connections, channels and requests. Each connection can have
+// an arbitrary number of channels, and has an out-of-band request mechanism.
+// Each channel consists of a duplex data stream and its own scoped request
+// mechanism. Clients may request channels for arbitrary reasons, and so
+// arbitrary application protocols can be hosted atop SSH. The familiar channel
+// is a "session", which represents the client's desire to execute a program
+// on the Server's host environment, shell or otherwise.
 //
 // The zero value of Server is a valid Server. If the config is not specified,
 // the DefaultServerConfig() is used and an ephemeral host key is generated on
-// Server initialization.
+// Server initialization. The server is initialized on the first call to Listen
+// or ListenAndServe, after which point the Server is considered to be running.
+// Handlers may be modified on a running Server but the ssh config and any hook
+// functions must not be changed.
+//
 type Server struct {
 	Addr   string
 	Config *ssh.ServerConfig
@@ -48,8 +59,6 @@ type Server struct {
 	cancel      context.CancelFunc
 }
 
-var logger = log.New(os.Stderr, "ssh: ", log.LstdFlags)
-
 // ConnectionHook allows for custom connection logic after a connection is
 // established but prior to the SSH handshake. A non-nil error means c will
 // be closed and no handshake will be performed.
@@ -66,38 +75,11 @@ type HandshakeHook func(conn *ServerConn) error
 // closed if the peer departed of their own volition.
 type DepartureHook func(conn *ServerConn)
 
-// RequestHandler is called for incoming global requests.
-type RequestHandler interface {
-	ServeRequest(r *ssh.Request)
-}
-
-// RequestHandlerFunc is ye ol' http/handler adapter type.
-// https://golang.org/src/net/http/server.go#L2004
-type RequestHandlerFunc func(r *ssh.Request)
-
-// ServeRequest calls f(r).
-func (f RequestHandlerFunc) ServeRequest(r *ssh.Request) {
-	f(r)
-}
-
-// ChannelHandler is called for each new ssh stream. When the provided context
-// is canceled, the ctx.Done chan will have data ready.
-type ChannelHandler interface {
-	ServeChannel(stream Channel, requests <-chan *ssh.Request)
-}
-
-// ChannelHandlerFunc is ye ol' http/handler adapter type.
-// https://golang.org/src/net/http/server.go#L2004
-type ChannelHandlerFunc func(stream Channel, requests <-chan *ssh.Request)
-
-// ServeChannel calls f(stream, requests).
-func (f ChannelHandlerFunc) ServeChannel(stream Channel, requests <-chan *ssh.Request) {
-	f(stream, requests)
-}
-
 // DefaultServerConfig allows public key auth from any client presenting a key
 // or certificate.
+//
 // TODO rename this "InsecureOpenServerConfig"?
+//
 func DefaultServerConfig() *ssh.ServerConfig {
 	return &ssh.ServerConfig{
 		ServerVersion:     "SSH-2.0-Go sshutil",
@@ -361,7 +343,6 @@ func (srv *Server) handshake(c net.Conn) {
 
 	// Process the channels
 	srv.ssh(conn, channels)
-
 }
 
 func defaultHandshakeHook(conn *ServerConn) error {
@@ -373,6 +354,14 @@ func defaultHandshakeHook(conn *ServerConn) error {
 func defaultDepartureHook(conn *ServerConn) {
 	pk := conn.Permissions.Extensions["pubkey-fp"]
 	conn.Server.L.Printf("Server peer egression '%s'", pk)
+}
+
+// ServerConn is a facade that decorates an embedded ssh.ServerConn with an
+// associated context and a reference to the server instance.
+type ServerConn struct {
+	*ssh.ServerConn
+	Context context.Context
+	Server  *Server
 }
 
 type ctxKey int
@@ -411,14 +400,6 @@ func connectionContext(ctx context.Context, conn *ssh.ServerConn) context.Contex
 	ctx = context.WithValue(ctx, CtxKeyServerVersion, string(conn.ServerVersion()))
 	ctx = context.WithValue(ctx, CtxKeySessionID, conn.SessionID())
 	return ctx
-}
-
-// ServerConn is a facade that decorates an embedded ssh.ServerConn with an
-// associated context and a reference to the server instance.
-type ServerConn struct {
-	*ssh.ServerConn
-	Context context.Context
-	Server  *Server
 }
 
 func (srv *Server) ssh(conn *ServerConn, channels <-chan ssh.NewChannel) {
@@ -460,6 +441,40 @@ type Channel struct {
 	ssh.Channel
 	Context context.Context
 	Conn    *ServerConn
+}
+
+// ChannelHandler is called for each new ssh stream. When the provided context
+// is canceled, the ctx.Done chan will have data ready.
+type ChannelHandler interface {
+	ServeChannel(stream Channel, requests <-chan *ssh.Request)
+}
+
+// ChannelHandlerFunc is ye ol' http/handler adapter type.
+// https://golang.org/src/net/http/server.go#L2004
+type ChannelHandlerFunc func(stream Channel, requests <-chan *ssh.Request)
+
+// ServeChannel calls f(stream, requests).
+func (f ChannelHandlerFunc) ServeChannel(stream Channel, requests <-chan *ssh.Request) {
+	f(stream, requests)
+}
+
+//
+// There is no default channel handler because setting one would cause the
+// server to acept all requests.
+//
+
+// RequestHandler is called for incoming global requests.
+type RequestHandler interface {
+	ServeRequest(r *ssh.Request)
+}
+
+// RequestHandlerFunc is ye ol' http/handler adapter type.
+// https://golang.org/src/net/http/server.go#L2004
+type RequestHandlerFunc func(r *ssh.Request)
+
+// ServeRequest calls f(r).
+func (f RequestHandlerFunc) ServeRequest(r *ssh.Request) {
+	f(r)
 }
 
 func (srv *Server) handleRequests(requests <-chan *ssh.Request) {
