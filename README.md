@@ -23,9 +23,28 @@ A small, but tedious, amount of work is required to implement a full connection-
 [rfc4252]: https://tools.ietf.org/html/rfc4252
 [rfc4253]: https://tools.ietf.org/html/rfc4253
 
+## Get
+
+```
+$ go get go.step.sm/sshutil
+```
+
 ## Examples
 
+Example can be found in the [examples][] directory.
+Run with:
+
+```
+$ go run go.step.sm/example/<name>
+$ go run ./example/<name>
+```
+
+[examples]: https://github.com/smallstep/sshutil/tree/master/example
+
+
 ### Hello SSH
+
+[`hello`](https://github.com/smallstep/sshutil/tree/master/example/hello/main.go)
 
 ```golang
 package main
@@ -45,7 +64,7 @@ func main() {
 
 Output:
 ```
-$ ./main
+$ go run ./example/hello
 $ ssh localhost -p 2022
 Hello SSH
 Server closed remote connection to localhost.
@@ -55,6 +74,8 @@ Server closed remote connection to localhost.
 
 The default session handler is an echo server.
 Easily configure a persistent host key.
+
+[`hostkey`](https://github.com/smallstep/sshutil/tree/master/example/hostkey/main.go)
 
 ```golang
 package main
@@ -84,6 +105,7 @@ func main() {
 
 Output:
 ```
+$ go run ./example/hostkey
 $ ssh localhost -p 2022
 > echo
 echo
@@ -91,3 +113,8 @@ echo
 Client closed connection to localhost.
 ```
 
+## Test
+
+```
+$ go test
+```
