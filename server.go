@@ -100,6 +100,7 @@ func (f ChannelHandlerFunc) ServeChannel(stream Channel, requests <-chan *ssh.Re
 // TODO rename this "InsecureOpenServerConfig"?
 func DefaultServerConfig() *ssh.ServerConfig {
 	return &ssh.ServerConfig{
+		ServerVersion:     "SSH-2.0-Go sshutil",
 		PublicKeyCallback: allowAllPublicKeys,
 	}
 }
