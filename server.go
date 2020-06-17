@@ -220,7 +220,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 		if max := 1 * time.Second; delay > max {
 			delay = max
 		}
-		srv.L.Printf("ssh: Accept error: %v; retrying in %v", err, delay)
+		srv.L.Printf("Server accept error '%v'; retrying in %v ns", err, delay)
 		time.Sleep(delay)
 	}
 
@@ -432,13 +432,13 @@ func (srv *Server) ssh(conn *ServerConn, channels <-chan ssh.NewChannel) {
 			unknown := ssh.UnknownChannelType
 			err := candidate.Reject(unknown, "unknown channel type")
 			if err != nil {
-				log.Printf("reject %s: %v", t, err)
+				log.Printf("Server error rejecting channel '%s': %v", t, err)
 			}
 			continue
 		}
 		channel, requests, err := candidate.Accept()
 		if err != nil {
-			srv.L.Printf("accept %s: %v", t, err)
+			srv.L.Printf("Server error accepting channel '%s': %v", t, err)
 			continue
 		}
 		ctx, cancel := context.WithCancel(conn.Context)
