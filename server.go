@@ -311,51 +311,6 @@ func (srv *Server) Close() error {
 	return nil
 }
 
-func (srv *Server) handshake(c net.Conn) {
-	// Before use, a handshake must be performed on the incoming net.Conn.
-	ssh, channels, global, err := ssh.NewServerConn(c, srv.Config)
-	if err != nil {
-		srv.L.Printf("Server handshake failure '%v'", err)
-		c.Close()
-		srv.Idle.Done()
-		return
-	}
-	ctx, cancel := context.WithCancel(srv.ctx)
-	conn := &ServerConn{
-		ServerConn: ssh,
-		Context:    connectionContext(ctx, ssh),
-		Server:     srv,
-	}
-	defer srv.Idle.Done()
-	defer conn.Close()
-	defer cancel()
-	if err := srv.trackConnection(conn); err != nil {
-		return
-	}
-	defer srv.forgetConnection(conn)
-	if err := srv.HandshakeHook(conn); err != nil {
-		return
-	}
-	defer srv.DepartureHook(conn)
-
-	// Process the global requests
-	go srv.handleRequests(global)
-
-	// Process the channels
-	srv.ssh(conn, channels)
-}
-
-func defaultHandshakeHook(conn *ServerConn) error {
-	pk := conn.Permissions.Extensions["pubkey-fp"]
-	conn.Server.L.Printf("Server peer accession '%s'", pk)
-	return nil
-}
-
-func defaultDepartureHook(conn *ServerConn) {
-	pk := conn.Permissions.Extensions["pubkey-fp"]
-	conn.Server.L.Printf("Server peer egression '%s'", pk)
-}
-
 // ServerConn is a facade that decorates an embedded ssh.ServerConn with an
 // associated context and a reference to the server instance.
 type ServerConn struct {
@@ -400,6 +355,84 @@ func connectionContext(ctx context.Context, conn *ssh.ServerConn) context.Contex
 	ctx = context.WithValue(ctx, CtxKeyServerVersion, string(conn.ServerVersion()))
 	ctx = context.WithValue(ctx, CtxKeySessionID, conn.SessionID())
 	return ctx
+}
+
+func (srv *Server) handshake(c net.Conn) {
+	// Before use, a handshake must be performed on the incoming net.Conn.
+	ssh, channels, global, err := ssh.NewServerConn(c, srv.Config)
+	if err != nil {
+		srv.L.Printf("Server handshake failure '%v'", err)
+		c.Close()
+		srv.Idle.Done()
+		return
+	}
+	ctx, cancel := context.WithCancel(srv.ctx)
+	conn := &ServerConn{
+		ServerConn: ssh,
+		Context:    connectionContext(ctx, ssh),
+		Server:     srv,
+	}
+	defer srv.Idle.Done()
+	defer conn.Close()
+	defer cancel()
+	if err := srv.trackConnection(conn); err != nil {
+		return
+	}
+	defer srv.forgetConnection(conn)
+	if err := srv.HandshakeHook(conn); err != nil {
+		return
+	}
+	defer srv.DepartureHook(conn)
+
+	// Process the global requests
+	go srv.handleRequests(conn, global)
+
+	// Process the channels
+	srv.ssh(conn, channels)
+}
+
+func defaultHandshakeHook(conn *ServerConn) error {
+	pk := conn.Permissions.Extensions["pubkey-fp"]
+	conn.Server.L.Printf("Server peer accession '%s'", pk)
+	return nil
+}
+
+func defaultDepartureHook(conn *ServerConn) {
+	pk := conn.Permissions.Extensions["pubkey-fp"]
+	conn.Server.L.Printf("Server peer egression '%s'", pk)
+}
+
+// RequestHandler is called for incoming global requests.
+type RequestHandler interface {
+	ServeRequest(conn *ServerConn, r *ssh.Request)
+}
+
+// RequestHandlerFunc is ye ol' http/handler adapter type.
+// https://golang.org/src/net/http/server.go#L2004
+type RequestHandlerFunc func(c *ServerConn, r *ssh.Request)
+
+// ServeRequest calls f(r).
+func (f RequestHandlerFunc) ServeRequest(c *ServerConn, r *ssh.Request) {
+	f(c, r)
+}
+
+func (srv *Server) handleRequests(conn *ServerConn, requests <-chan *ssh.Request) {
+	for req := range requests {
+		srv.mu.RLock()
+		handler, ok := srv.GlobalRequests[req.Type]
+		srv.mu.RUnlock()
+		if !ok {
+			handler = srv.DefaultRequestHandler
+		}
+		handler.ServeRequest(conn, req)
+	}
+}
+
+// discard request
+func defaultRequestFunc(conn *ServerConn, req *ssh.Request) {
+	if req.WantReply {
+		req.Reply(false, nil)
+	}
 }
 
 func (srv *Server) ssh(conn *ServerConn, channels <-chan ssh.NewChannel) {
@@ -463,43 +496,10 @@ func (f ChannelHandlerFunc) ServeChannel(stream Channel, requests <-chan *ssh.Re
 // server to acept all requests.
 //
 
-// RequestHandler is called for incoming global requests.
-type RequestHandler interface {
-	ServeRequest(r *ssh.Request)
-}
-
-// RequestHandlerFunc is ye ol' http/handler adapter type.
-// https://golang.org/src/net/http/server.go#L2004
-type RequestHandlerFunc func(r *ssh.Request)
-
-// ServeRequest calls f(r).
-func (f RequestHandlerFunc) ServeRequest(r *ssh.Request) {
-	f(r)
-}
-
-func (srv *Server) handleRequests(requests <-chan *ssh.Request) {
-	for req := range requests {
-		srv.mu.RLock()
-		handler, ok := srv.GlobalRequests[req.Type]
-		srv.mu.RUnlock()
-		if !ok {
-			handler = srv.DefaultRequestHandler
-		}
-		handler.ServeRequest(req)
-	}
-}
-
-// discard request
-func defaultRequestFunc(req *ssh.Request) {
-	if req.WantReply {
-		req.Reply(false, nil)
-	}
-}
-
-// GlobalRequest registers a handler to be called on incomming global requests
+// Request registers a handler to be called on incomming global (conn) requests
 // of type reqType. Only one handler may be registered for a given reqType. It
 // is an error if this method is called twice with the same reqType.
-func (srv *Server) GlobalRequest(reqType string, handler RequestHandler) error {
+func (srv *Server) Request(reqType string, handler RequestHandler) error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	if srv.GlobalRequests == nil {
