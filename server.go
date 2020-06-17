@@ -277,6 +277,28 @@ func (srv *Server) Shutdown() error {
 	return nil
 }
 
+// Shutdown the server and wait for all connections to drain gracefully. If the
+// provided context is canceled return the context's error.
+func (srv *Server) ShutdownAndWait(ctx context.Context) error {
+	err := srv.Shutdown()
+	if err != nil && err != ErrServerClosed {
+		return err
+	}
+
+	idle := make(chan struct{}, 1)
+	go func() {
+		srv.Idle.Wait()
+		close(idle)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-idle:
+		return nil
+	}
+}
+
 // CloseCalled reports whether the server is Closed or not. A closed server
 // does not allow new connections to be tracked.
 func (srv *Server) CloseCalled() bool {
