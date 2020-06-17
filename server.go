@@ -172,7 +172,7 @@ func (srv *Server) init() error {
 
 // ErrServerClosed is returned from ListenAndServe and Serve when either
 // method returnd due to a call to Close or Shutdown.
-var ErrServerClosed = errors.New("ssh: Server closed")
+var ErrServerClosed = errors.New("sshutil: Server closed")
 
 // ListenAndServe blocks listening on Server.Addr. If Addr is empty, the
 // server listens on localhost:22, the ssh port. The returned error is never
@@ -491,7 +491,7 @@ func (srv *Server) GlobalRequest(reqType string, h RequestHandler) error {
 	defer srv.mu.Unlock()
 	_, exists := srv.GlobalRequests[reqType]
 	if exists {
-		return fmt.Errorf("ssh: request name '%s' already registered", reqType)
+		return fmt.Errorf("sshutil: request name '%s' already registered", reqType)
 	}
 	srv.GlobalRequests[reqType] = h
 	return nil
@@ -507,7 +507,7 @@ func (srv *Server) Channel(name string, handler ChannelHandler) error {
 	defer srv.mu.Unlock()
 	_, exists := srv.ChannelHandlers[name]
 	if exists {
-		return fmt.Errorf("ssh: channel name '%s' already registered", name)
+		return fmt.Errorf("sshutil: channel name '%s' already registered", name)
 	}
 	srv.ChannelHandlers[name] = handler
 	return nil
@@ -521,7 +521,7 @@ func (srv *Server) trackListener(ln net.Listener) error {
 	defer srv.mu.Unlock()
 	_, exists := srv.listeners[ln]
 	if exists {
-		return errors.New("ssh: listener already registered")
+		return errors.New("sshutil: listener already registered")
 	}
 	srv.listeners[ln] = struct{}{}
 	return nil
@@ -542,7 +542,7 @@ func (srv *Server) trackConnection(c *ServerConn) error {
 	defer srv.mu.Unlock()
 	_, exists := srv.connections[id]
 	if exists {
-		return errors.New("ssh: connection already registered")
+		return errors.New("sshutil: connection already registered")
 	}
 	srv.connections[id] = c
 	return nil
