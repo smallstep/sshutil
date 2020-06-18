@@ -272,12 +272,12 @@ func (srv *Server) ShutdownAndWait(ctx context.Context) error {
 		return err
 	}
 
+	srv.L.Println("Server waiting for peer connections to drain...")
 	idle := make(chan struct{}, 1)
 	go func() {
 		srv.Idle.Wait()
 		close(idle)
 	}()
-
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

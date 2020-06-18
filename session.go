@@ -114,12 +114,12 @@ func (sh *SessionHandler) ServeChannel(channel Channel, requests <-chan *ssh.Req
 
 func defaultSessionFunc(session *Session) {
 	environment := make(map[string]string)
+	done := session.Context.Done()
 	for {
 		select {
-		case <-session.Context.Done():
-			session.Terminal.SetPrompt("")
-			session.Terminal.Write([]byte("\nGoodbye!\n"))
-			return
+		case <-done:
+			session.Terminal.Write([]byte("msg: Server going down..\n"))
+			done = nil
 		case env := <-session.Envs:
 			environment[env.Key] = env.Value
 		case sig := <-session.Signals:
