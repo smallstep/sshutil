@@ -251,6 +251,8 @@ func (srv *Server) Shutdown() error {
 		return ErrServerClosed
 	}
 	// First call to Shutdown. Stop listen loops:
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
 	for l := range srv.listeners {
 		err := l.Close()
 		if err != nil {
@@ -302,6 +304,8 @@ func (srv *Server) Close() error {
 		return ErrServerClosed
 	}
 	// First call to Close. Drain connections forcibly:
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 	for _, c := range srv.connections {
 		err := c.Close()
 		if err != nil {
