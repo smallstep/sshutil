@@ -71,10 +71,10 @@ Hello SSH
 Server closed remote connection to localhost.
 ```
 
-### Echo server
+### Host Key
 
-The default session handler is an echo server.
-Easily configure a persistent host key.
+Easily configure a persistent host key using `sshutil.LoadHostKeyFromFile`.
+The default session handler is an echo terminal server.
 
 [`hostkey`](https://github.com/smallstep/sshutil/tree/master/example/hostkey/main.go)
 
