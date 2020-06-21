@@ -22,7 +22,7 @@ func main() {
 		L: log.New(os.Stderr, "", log.LstdFlags),
 	}
 	{ // scope err
-	key, err := sshutil.LoadHostKeyFromFile("example/server.key", "")
+	key, err := sshutil.LoadKeyFromFile("example/server.key")
 	if err != nil {
 		log.Fatalf("error loading key: %v", err)
 	}
