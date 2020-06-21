@@ -35,7 +35,7 @@ func LoadCertFromFiles(keypath, certpath string) (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
-	pub, err := ssh.ParsePublicKey(cb)
+	pub, _, _, _, err := ssh.ParseAuthorizedKey(cb)
 	if err != nil {
 		return nil, err
 	}
