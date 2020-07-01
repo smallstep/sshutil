@@ -5,4 +5,5 @@ import (
 	"os"
 )
 
-var logger = log.New(os.Stderr, "sshutil: ", log.LstdFlags)
+var lflags = log.Ldate | log.Ltime | log.Lmsgprefix
+var logger = log.New(os.Stderr, "sshutil: ", lflags)
