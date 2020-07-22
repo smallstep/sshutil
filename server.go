@@ -191,7 +191,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 	}
 	defer srv.forgetListener(listener)
 
-	srv.L.Printf("Server commence listening on %s", listener.Addr())
+	srv.L.Printf("listening on %s", listener.Addr())
 
 	// Delay inspired by net/http:
 	var delay time.Duration
