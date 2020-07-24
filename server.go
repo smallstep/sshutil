@@ -121,7 +121,7 @@ func (srv *Server) init() error {
 				return
 			}
 			f := ssh.FingerprintSHA256(signer.PublicKey())
-			srv.L.Printf("Server ephermeral key '%s'", f)
+			srv.L.Printf("server ephermeral key '%s'", f)
 			config.AddHostKey(signer)
 			srv.Config = config
 		}
@@ -156,7 +156,7 @@ func (srv *Server) init() error {
 
 // ErrServerClosed is returned from ListenAndServe and Serve when either
 // method returnd due to a call to Close or Shutdown.
-var ErrServerClosed = errors.New("sshutil: Server closed")
+var ErrServerClosed = errors.New("sshutil: server closed")
 
 // ListenAndServe blocks listening on Server.Addr. If Addr is empty, the
 // server listens on localhost:22, the ssh port. The returned error is never
@@ -191,7 +191,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 	}
 	defer srv.forgetListener(listener)
 
-	srv.L.Printf("listening on %s", listener.Addr())
+	srv.L.Printf("server listening on %s", listener.Addr())
 
 	// Delay inspired by net/http:
 	var delay time.Duration
@@ -204,7 +204,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 		if max := 1 * time.Second; delay > max {
 			delay = max
 		}
-		srv.L.Printf("Server accept error '%v'; retrying in %v ns", err, delay)
+		srv.L.Printf("server accept error '%v'; retrying in %v ns", err, delay)
 		time.Sleep(delay)
 	}
 
@@ -218,7 +218,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 				continue
 			}
 			addr := listener.Addr().String()
-			srv.L.Printf("Server finished listening on %s", addr)
+			srv.L.Printf("server finished listening on %s", addr)
 			if srv.ShutdownCalled() {
 				return ErrServerClosed
 			}
@@ -272,7 +272,7 @@ func (srv *Server) ShutdownAndWait(ctx context.Context) error {
 		return err
 	}
 
-	srv.L.Println("Server waiting for peer connections to drain...")
+	srv.L.Println("server waiting for peer connections to drain...")
 	idle := make(chan struct{}, 1)
 	go func() {
 		srv.Idle.Wait()
@@ -365,7 +365,7 @@ func (srv *Server) handshake(c net.Conn) {
 	// Before use, a handshake must be performed on the incoming net.Conn.
 	ssh, channels, global, err := ssh.NewServerConn(c, srv.Config)
 	if err != nil {
-		srv.L.Printf("Server handshake failure '%v'", err)
+		srv.L.Printf("server handshake failure '%v'", err)
 		c.Close()
 		srv.Idle.Done()
 		return
@@ -397,13 +397,13 @@ func (srv *Server) handshake(c net.Conn) {
 
 func defaultHandshakeHook(conn *ServerConn) error {
 	pk := conn.Permissions.Extensions["pubkey-fp"]
-	conn.Server.L.Printf("Server peer accession '%s'", pk)
+	conn.Server.L.Printf("server peer accession '%s'", pk)
 	return nil
 }
 
 func defaultDepartureHook(conn *ServerConn) {
 	pk := conn.Permissions.Extensions["pubkey-fp"]
-	conn.Server.L.Printf("Server peer egression '%s'", pk)
+	conn.Server.L.Printf("server peer egression '%s'", pk)
 }
 
 // RequestHandler is called for incoming global requests.
@@ -452,13 +452,13 @@ func (srv *Server) ssh(conn *ServerConn, channels <-chan ssh.NewChannel) {
 			unknown := ssh.UnknownChannelType
 			err := candidate.Reject(unknown, "unknown channel type")
 			if err != nil {
-				log.Printf("Server error rejecting channel '%s': %v", t, err)
+				log.Printf("server error rejecting channel '%s': %v", t, err)
 			}
 			continue
 		}
 		channel, requests, err := candidate.Accept()
 		if err != nil {
-			srv.L.Printf("Server error accepting channel '%s': %v", t, err)
+			srv.L.Printf("server error accepting channel '%s': %v", t, err)
 			continue
 		}
 		ctx, cancel := context.WithCancel(conn.Context)
