@@ -19,6 +19,15 @@ func LoadCertFromKeyFileOpenSSH(keypath string) (ssh.Signer, error) {
 	return LoadCertFromFiles(keypath, certpath)
 }
 
+// LoadCertFromKeyFileEncOpenSSH returns an ssh.Signer from the encrypted key
+// stored at the given filesystem path with a public key that is the ssh
+// certificate loaded from the file "<path>-cert.pub". This is how ssh-add looks
+// for certs when adding keys to ssh-agent.
+func LoadCertFromKeyFileEncOpenSSH(keypath string, pass []byte) (ssh.Signer, error) {
+	certpath := keypath + "-cert.pub"
+	return LoadCertFromFilesEnc(keypath, certpath, pass)
+}
+
 // LoadCertFromFiles returns an ssh.Signer with private key loaded from the
 // unecrypted path keypath and a public cert component loaded from certpath.
 func LoadCertFromFiles(keypath, certpath string) (ssh.Signer, error) {
@@ -43,6 +52,32 @@ func LoadCertFromFiles(keypath, certpath string) (ssh.Signer, error) {
 	signer, err := ssh.NewCertSigner(cert, key)
 	return signer, nil
 }
+
+// LoadCertFromFilesEnc returns an ssh.Signer with private key loaded from the
+// ecrypted key at path keypath and a public cert component loaded from certpath.
+func LoadCertFromFilesEnc(keypath, certpath string, pass []byte) (ssh.Signer, error) {
+	// Read host key from a file, parse using x/crypto/ssh.
+	kb, err := ioutil.ReadFile(keypath)
+	if err != nil {
+		return nil, err
+	}
+	key, err := ssh.ParsePrivateKeyWithPassphrase(kb, pass)
+	if err != nil {
+		return nil, err
+	}
+	cb, err := ioutil.ReadFile(certpath)
+	if err != nil {
+		return nil, err
+	}
+	pub, _, _, _, err := ssh.ParseAuthorizedKey(cb)
+	if err != nil {
+		return nil, err
+	}
+	cert := pub.(*ssh.Certificate)
+	signer, err := ssh.NewCertSigner(cert, key)
+	return signer, nil
+}
+
 
 // LoadKeyFromFile returns an ssh.Signer from the unencrypted key stored
 // at the given filesystem path.
