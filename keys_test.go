@@ -26,7 +26,7 @@ func TestGenerateKey_Bad(t *testing.T) {
 	if s != nil {
 		t.Error("expected nil signer")
 	}
-	if err != errBadRand {
+	if !errors.Is(err, errBadRand) {
 		t.Error("expected error")
 	}
 }

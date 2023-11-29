@@ -30,7 +30,6 @@ import (
 // or ListenAndServe, after which point the Server is considered to be running.
 // Handlers may be modified on a running Server but the ssh config and any hook
 // functions must not be changed.
-//
 type Server struct {
 	Addr   string
 	Config *ssh.ServerConfig
@@ -79,7 +78,6 @@ type DepartureHook func(conn *ServerConn)
 // or certificate.
 //
 // TODO rename this "InsecureOpenServerConfig"?
-//
 func DefaultServerConfig() *ssh.ServerConfig {
 	return &ssh.ServerConfig{
 		ServerVersion:     "SSH-2.0-Go sshutil",
@@ -87,7 +85,7 @@ func DefaultServerConfig() *ssh.ServerConfig {
 	}
 }
 
-func allowAllPublicKeys(meta ssh.ConnMetadata, pubkey ssh.PublicKey) (*ssh.Permissions, error) {
+func allowAllPublicKeys(_ ssh.ConnMetadata, pubkey ssh.PublicKey) (*ssh.Permissions, error) {
 	return &ssh.Permissions{
 		// Record the public key used for authentication.
 		Extensions: map[string]string{
@@ -155,7 +153,7 @@ func (srv *Server) init() error {
 }
 
 // ErrServerClosed is returned from ListenAndServe and Serve when either
-// method returnd due to a call to Close or Shutdown.
+// method returned due to a call to Close or Shutdown.
 var ErrServerClosed = errors.New("sshutil: server closed")
 
 // ListenAndServe blocks listening on Server.Addr. If Addr is empty, the
@@ -213,7 +211,7 @@ func (srv *Server) Serve(listener net.Listener) error {
 		conn, err := listener.Accept()
 		if err != nil {
 			var ne net.Error
-			if errors.As(err, &ne) && ne.Temporary() {
+			if errors.As(err, &ne) && ne.Timeout() {
 				delayedTryAgain(ne)
 				continue
 			}
@@ -268,7 +266,7 @@ func (srv *Server) Shutdown() error {
 // provided context is canceled return the context's error.
 func (srv *Server) ShutdownAndWait(ctx context.Context) error {
 	err := srv.Shutdown()
-	if err != nil && err != ErrServerClosed {
+	if err != nil && !errors.Is(err, ErrServerClosed) {
 		return err
 	}
 
@@ -292,12 +290,12 @@ func (srv *Server) CloseCalled() bool {
 	return atomic.LoadUint64(&srv.closed) == 1
 }
 
-// Close stops the server immediately. Close calls Shutdown and then procedes
+// Close stops the server immediately. Close calls Shutdown and then proceeds
 // to close any open connections. ...A close handler allows you inject custom
 // teardown logic on an open ssh stream...
 func (srv *Server) Close() error {
 	err := srv.Shutdown()
-	if err != nil && err != ErrServerClosed {
+	if err != nil && !errors.Is(err, ErrServerClosed) {
 		return err
 	}
 	if !atomic.CompareAndSwapUint64(&srv.closed, 0, 1) {
@@ -363,7 +361,7 @@ func connectionContext(ctx context.Context, conn *ssh.ServerConn) context.Contex
 
 func (srv *Server) handshake(c net.Conn) {
 	// Before use, a handshake must be performed on the incoming net.Conn.
-	ssh, channels, global, err := ssh.NewServerConn(c, srv.Config)
+	sshsrv, channels, global, err := ssh.NewServerConn(c, srv.Config)
 	if err != nil {
 		srv.L.Printf("server handshake failure '%v'", err)
 		c.Close()
@@ -372,8 +370,8 @@ func (srv *Server) handshake(c net.Conn) {
 	}
 	ctx, cancel := context.WithCancel(srv.ctx)
 	conn := &ServerConn{
-		ServerConn: ssh,
-		Context:    connectionContext(ctx, ssh),
+		ServerConn: sshsrv,
+		Context:    connectionContext(ctx, sshsrv),
 		Server:     srv,
 	}
 	defer srv.Idle.Done()
@@ -433,7 +431,7 @@ func (srv *Server) handleRequests(conn *ServerConn, requests <-chan *ssh.Request
 }
 
 // discard request
-func defaultRequestFunc(conn *ServerConn, req *ssh.Request) {
+func defaultRequestFunc(_ *ServerConn, req *ssh.Request) {
 	if req.WantReply {
 		req.Reply(false, nil)
 	}
@@ -441,39 +439,43 @@ func defaultRequestFunc(conn *ServerConn, req *ssh.Request) {
 
 func (srv *Server) ssh(conn *ServerConn, channels <-chan ssh.NewChannel) {
 	for candidate := range channels {
-		t := candidate.ChannelType()
-		srv.mu.RLock()
-		handler, ok := srv.ChannelHandlers[t]
-		srv.mu.RUnlock()
-		if !ok {
-			handler = srv.DefaultChannelHandler
-		}
-		if handler == nil {
-			unknown := ssh.UnknownChannelType
-			err := candidate.Reject(unknown, "unknown channel type")
-			if err != nil {
-				log.Printf("server error rejecting channel '%s': %v", t, err)
-			}
-			continue
-		}
-		channel, requests, err := candidate.Accept()
-		if err != nil {
-			srv.L.Printf("server error accepting channel '%s': %v", t, err)
-			continue
-		}
-		ctx, cancel := context.WithCancel(conn.Context)
-		defer cancel()
-		stream := Channel{
-			Channel: channel,
-			Context: ctx,
-			Conn:    conn,
-		}
-		go handler.ServeChannel(stream, requests)
+		srv.sshHelper(conn, candidate)
 	}
 }
 
+func (srv *Server) sshHelper(conn *ServerConn, candidate ssh.NewChannel) {
+	t := candidate.ChannelType()
+	srv.mu.RLock()
+	handler, ok := srv.ChannelHandlers[t]
+	srv.mu.RUnlock()
+	if !ok {
+		handler = srv.DefaultChannelHandler
+	}
+	if handler == nil {
+		unknown := ssh.UnknownChannelType
+		err := candidate.Reject(unknown, "unknown channel type")
+		if err != nil {
+			log.Printf("server error rejecting channel '%s': %v", t, err)
+		}
+		return
+	}
+	channel, requests, err := candidate.Accept()
+	if err != nil {
+		srv.L.Printf("server error accepting channel '%s': %v", t, err)
+		return
+	}
+	ctx, cancel := context.WithCancel(conn.Context)
+	defer cancel()
+	stream := Channel{
+		Channel: channel,
+		Context: ctx,
+		Conn:    conn,
+	}
+	go handler.ServeChannel(stream, requests)
+}
+
 // Channel is a facade that decorates an embedded ssh.Channel with a context
-// and a referrence to the server instance.
+// and a reference to the server instance.
 type Channel struct {
 	ssh.Channel
 	Context context.Context
@@ -567,7 +569,6 @@ func (srv *Server) trackConnection(c *ServerConn) error {
 	}
 	srv.connections[id] = c
 	return nil
-
 }
 
 func (srv *Server) forgetConnection(c *ServerConn) {

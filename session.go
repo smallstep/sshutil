@@ -1,13 +1,14 @@
 package sshutil
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"strings"
 
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 // SessionFunc is called when a new ssh "session" channel is established.
@@ -46,7 +47,7 @@ func NewSessionHandler(fn SessionFunc) *SessionHandler {
 		var env Env
 		err := ssh.Unmarshal(req.Payload, &env)
 		if err != nil {
-			e := fmt.Errorf("error unmarshaling env payload: %v", err)
+			e := fmt.Errorf("error unmarshaling env payload: %w", err)
 			s.Errors <- e
 			return
 		}
@@ -57,7 +58,7 @@ func NewSessionHandler(fn SessionFunc) *SessionHandler {
 		var p struct{ Signal ssh.Signal }
 		err := ssh.Unmarshal(req.Payload, &p)
 		if err != nil {
-			e := fmt.Errorf("error unmarshaling signal payload: %v", err)
+			e := fmt.Errorf("error unmarshaling signal payload: %w", err)
 			s.Errors <- e
 		}
 		s.Signals <- p.Signal
@@ -79,7 +80,7 @@ type SessionHandler struct {
 // means the execution of a remote command, with reqpect to the client.
 type Session struct {
 	Channel
-	Terminal *terminal.Terminal
+	Terminal *term.Terminal
 	Lines    chan string
 	Envs     chan Env
 	Signals  chan ssh.Signal
@@ -91,7 +92,7 @@ type Session struct {
 func (sh *SessionHandler) ServeChannel(channel Channel, requests <-chan *ssh.Request) {
 	s := &Session{
 		Channel:  channel,
-		Terminal: terminal.NewTerminal(channel, "> "),
+		Terminal: term.NewTerminal(channel, "> "),
 		Envs:     make(chan Env),
 		Lines:    make(chan string),
 		Signals:  make(chan ssh.Signal),
@@ -101,7 +102,7 @@ func (sh *SessionHandler) ServeChannel(channel Channel, requests <-chan *ssh.Req
 	go func() {
 		for {
 			line, err := s.Terminal.ReadLine()
-			if err != nil && err == io.EOF {
+			if err != nil && errors.Is(err, io.EOF) {
 				s.Lines <- ""
 				return
 			}
@@ -158,7 +159,7 @@ func (sh *SessionHandler) process(session *Session, requests <-chan *ssh.Request
 	}
 }
 
-// Ack affirmatively acknowleges a request. Ack does not send a payload.
+// Ack affirmatively acknowledges a request. Ack does not send a payload.
 func Ack() SessionRequestHandler {
 	return SessionReqHandlerFunc(func(_ *Session, req *ssh.Request) {
 		req.Reply(true, nil)
