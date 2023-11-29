@@ -2,6 +2,7 @@ package sshutil
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net"
 	"sync"
@@ -24,7 +25,7 @@ func TestServer(t *testing.T) {
 	go func() {
 		// Blocks until Close/Shutdown is called
 		err := subject.Serve(ln)
-		if err != ErrServerClosed {
+		if !errors.Is(err, ErrServerClosed) {
 			t.Errorf("Got incorrect error: %v, expecting %v", err, ErrServerClosed)
 		}
 		t.Log("server done")

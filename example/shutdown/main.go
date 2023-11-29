@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -14,19 +13,18 @@ import (
 	"go.step.sm/sshutil"
 )
 
-
 func main() {
 	server := &sshutil.Server{
-		Addr: ":2022",
+		Addr:   ":2022",
 		Config: sshutil.DefaultServerConfig(),
-		L: log.New(os.Stderr, "", log.LstdFlags),
+		L:      log.New(os.Stderr, "", log.LstdFlags),
 	}
 	{ // scope err
-	key, err := sshutil.LoadKeyFromFile("example/server.key")
-	if err != nil {
-		log.Fatalf("error loading key: %v", err)
-	}
-	server.Config.AddHostKey(key)
+		key, err := sshutil.LoadKeyFromFile("example/server.key")
+		if err != nil {
+			log.Fatalf("error loading key: %v", err)
+		}
+		server.Config.AddHostKey(key)
 	}
 
 	// os.Interrupt (syscall.SIGINT) comes from ^C
@@ -37,7 +35,7 @@ func main() {
 	done := make(chan error, 1)
 	go func() {
 		err := server.ListenAndServe()
-		done<- err
+		done <- err
 	}()
 	<-signals
 
@@ -47,7 +45,7 @@ func main() {
 	// On first interrupt, attempt a graceful shutdown. Wait until a second
 	// interrupt, or until 10 seconds elapse, to forcibly close.
 	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, 10 * time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	go func() {
 		<-signals
 		cancel()
@@ -74,7 +72,7 @@ func main() {
 		server.Idle.Wait()
 	}
 	err := <-done
-	if err != sshutil.ErrServerClosed {
+	if err != nil && !errors.Is(err, sshutil.ErrServerClosed) {
 		log.Printf("Unexpected error from serve loop: %v", err)
 	}
 	log.Println("Done.")

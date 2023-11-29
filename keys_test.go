@@ -18,15 +18,16 @@ type goodReader struct{}
 func (reader goodReader) Read(b []byte) (n int, err error) {
 	emptyKey := make([]byte, len(b))
 	copy(b, emptyKey)
+	b[0] = byte('A')
 	return len(b), nil
 }
 
-func TestGenerateKey_Bad(t *testing.T) {
+func TestGenerateKeyRand_Bad(t *testing.T) {
 	s, err := GenerateKeyRand(badReader{})
 	if s != nil {
 		t.Error("expected nil signer")
 	}
-	if err != errBadRand {
+	if !errors.Is(err, errBadRand) {
 		t.Error("expected error")
 	}
 }
@@ -37,7 +38,7 @@ func TestGenerateKeyRand_Okay(t *testing.T) {
 		t.Errorf("error generating key %v", err)
 	}
 	if s == nil {
-		t.Error("expected non-nil key")
+		t.Fatal("expected non-nil key")
 	}
 	if s.PublicKey().Type() != "ecdsa-sha2-nistp256" {
 		t.Error("expected 256 bit ecdsa key")
