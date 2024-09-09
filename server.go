@@ -199,8 +199,8 @@ func (srv *Server) Serve(listener net.Listener) error {
 		} else {
 			delay *= 2
 		}
-		if max := 1 * time.Second; delay > max {
-			delay = max
+		if maximum := 1 * time.Second; delay > maximum {
+			delay = maximum
 		}
 		srv.L.Printf("server accept error '%v'; retrying in %v ns", err, delay)
 		time.Sleep(delay)
