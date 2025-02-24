@@ -1,7 +1,6 @@
 module go.step.sm/sshutil
 
-go 1.21
-toolchain go1.23.6
+go 1.23.6
 
 require (
 	golang.org/x/crypto v0.34.0
